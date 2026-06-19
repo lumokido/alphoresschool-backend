@@ -1,0 +1,270 @@
+package com.lumo.backend.students.service;
+
+import com.lumo.backend.students.dto.StudentAdd;
+import com.lumo.backend.students.dto.StudentAddResponse;
+import com.lumo.backend.students.dto.StudentResponse;
+import com.lumo.backend.students.dto.StudentUpdate;
+import com.lumo.backend.students.dto.StudentLoginRequest;
+import com.lumo.backend.students.entity.Student;
+import com.lumo.backend.students.repository.StudentRepository;
+import com.lumo.backend.teachers.entity.Teacher;
+import com.lumo.backend.teachers.repository.TeacherRepository;
+import com.lumo.backend.classes.entity.SchoolClass;
+import com.lumo.backend.classes.entity.Section;
+import com.lumo.backend.classes.repository.SchoolClassRepository;
+import com.lumo.backend.classes.repository.SectionRepository;
+import com.lumo.backend.attendance.repository.AttendanceRepository;
+import com.lumo.backend.attendance.entity.Attendance;
+import com.lumo.backend.security.JwtService;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Optional;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.Optional;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service
+public class StudentService {
+
+    private final StudentRepository studentRepository;
+    private final TeacherRepository teacherRepository;
+    private final SchoolClassRepository classRepository;
+    private final SectionRepository sectionRepository;
+    private final AttendanceRepository attendanceRepository;
+    private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder;
+
+    public StudentService(
+            StudentRepository studentRepository,
+            TeacherRepository teacherRepository,
+            SchoolClassRepository classRepository,
+            SectionRepository sectionRepository,
+            AttendanceRepository attendanceRepository,
+            JwtService jwtService,
+            PasswordEncoder passwordEncoder) {
+        this.studentRepository = studentRepository;
+        this.teacherRepository = teacherRepository;
+        this.classRepository = classRepository;
+        this.sectionRepository = sectionRepository;
+        this.attendanceRepository = attendanceRepository;
+        this.jwtService = jwtService;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    public StudentAddResponse addStudent(StudentAdd request, String authorizationHeader) {
+        String token = authorizationHeader.replace("Bearer ", "").trim();
+        
+        String adminEmail = jwtService.extractAdminSubject(token);
+        
+        if (adminEmail == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Only Admins or Principals can add students.");
+        }
+
+        Teacher teacher = null;
+
+        String mobile = request.mobileNumber();
+        if (mobile == null || mobile.isBlank()) {
+            throw new IllegalArgumentException("mobileNumber is required.");
+        }
+        if (studentRepository.findByMobileNumber(mobile).isPresent()) {
+            throw new IllegalArgumentException(
+                    "Student with mobile number " + mobile + " already exists.");
+        }
+
+        Student student = new Student();
+        mapFields(student, request.firstName(), request.lastName(), request.middleName(),
+                mobile, request.parentName(), request.dateOfBirth(),
+                request.gender(), request.rollNumber(), request.studentClass());
+
+        // Generate unique Student ID: ALP26 + 4-digit sequence
+        long nextNum = studentRepository.count() + 1;
+        String studentId = String.format("ALP26%04d", nextNum);
+        student.setStudentId(studentId);
+
+        // Default password "123456"
+        student.setPassword(passwordEncoder.encode("123456"));
+        student.setStatus("ACTIVE");
+
+        // Associate class if exists
+        if (request.studentClass() != null && !request.studentClass().isBlank()) {
+            SchoolClass sc = classRepository.findByName(request.studentClass()).orElse(null);
+            if (sc == null) {
+                // If not found by name, try to create it or auto-link
+                sc = new SchoolClass();
+                sc.setName(request.studentClass());
+                sc = classRepository.save(sc);
+            }
+            student.setSchoolClass(sc);
+
+            // Fetch or create section provided by request (default to A)
+            String targetSection = request.sectionName() != null && !request.sectionName().isBlank() ? request.sectionName() : "A";
+            Section sec = sectionRepository.findByNameAndSchoolClassId(targetSection, sc.getId()).orElse(null);
+            if (sec == null) {
+                sec = new Section();
+                sec.setName(targetSection);
+                sec.setSchoolClass(sc);
+                sec = sectionRepository.save(sec);
+            }
+            student.setSection(sec);
+        }
+
+        Student saved = studentRepository.save(student);
+        
+        if (teacher == null && request.studentClass() != null && !request.studentClass().isBlank()) {
+            // Admin added the student, try to link to class teacher if exists
+            String targetSection = request.sectionName() != null && !request.sectionName().isBlank() ? request.sectionName() : "A";
+            String match1 = request.studentClass() + "Section " + targetSection;
+            String match2 = request.studentClass() + targetSection;
+            
+            teacher = teacherRepository.findByClassTeacher(match1).orElse(null);
+            if (teacher == null) {
+                teacher = teacherRepository.findByClassTeacher(match2).orElse(null);
+            }
+            if (teacher == null) {
+                teacher = teacherRepository.findByClassTeacher(request.studentClass()).orElse(null);
+            }
+        }
+
+        if (teacher != null) {
+            teacher.getStudentIds().add(saved.getId());
+            teacherRepository.save(teacher);
+        }
+        
+        return new StudentAddResponse("Student added successfully", saved.getId());
+    }
+
+    public List<StudentResponse> getStudentsByClass(String className) {
+        return studentRepository.findByStudentClass(className).stream()
+                .map(this::buildResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<StudentResponse> getStudentsByClassId(Long classId) {
+        return studentRepository.findBySchoolClassId(classId).stream()
+                .map(this::buildResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<StudentResponse> getStudentsByClassAndSection(Long classId, Long sectionId) {
+        return studentRepository.findBySchoolClassIdAndSectionId(classId, sectionId).stream()
+                .map(this::buildResponse)
+                .collect(Collectors.toList());
+    }
+
+    public Map<String, String> loginStudent(StudentLoginRequest request) {
+        Student student = studentRepository.findByMobileNumber(request.mobileNumber()).orElse(null);
+        if (student == null || student.getDateOfBirth() == null || !student.getDateOfBirth().equals(request.dateOfBirth())) {
+            return null;
+        }
+        
+        Map<String, String> tokens = new HashMap<>();
+        tokens.put("accessToken", jwtService.generateStudentToken(student.getStudentId()));
+        tokens.put("refreshToken", jwtService.generateStudentRefreshToken(student.getStudentId()));
+        return tokens;
+    }
+
+    public String refreshAccessToken(String refreshToken) {
+        String studentId = jwtService.extractStudentSubject(refreshToken);
+        if (studentId == null) {
+            return null;
+        }
+        // Verify student still exists
+        Student student = studentRepository.findByStudentId(studentId).orElse(null);
+        if (student == null) {
+            return null;
+        }
+        return jwtService.generateStudentToken(student.getStudentId());
+    }
+
+    public StudentResponse getStudentByToken(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing or invalid token");
+        }
+        String token = authorizationHeader.replace("Bearer ", "").trim();
+        String studentId = jwtService.extractStudentSubject(token);
+        if (studentId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired token");
+        }
+        Student student = studentRepository.findByStudentId(studentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found"));
+        return buildResponse(student);
+    }
+
+    public StudentResponse updateStudent(Long studentId, StudentUpdate request) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Student not found with id: " + studentId));
+
+        mapFields(student, request.firstName(), request.lastName(), request.middleName(),
+                request.mobileNumber(), request.parentName(), request.dateOfBirth(),
+                request.gender(), request.rollNumber(), request.studentClass());
+
+        Student updated = studentRepository.save(student);
+        return buildResponse(updated);
+    }
+
+    public StudentResponse getStudentWithTeacher(Long studentId) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Student not found with id: " + studentId));
+        return buildResponse(student);
+    }
+
+    private void mapFields(Student student, String firstName, String lastName,
+            String middleName, String mobileNumber, String parentName,
+            String dateOfBirth, String gender, String rollNumber, String studentClass) {
+        student.setFirstName(firstName);
+        student.setLastName(lastName);
+        student.setMiddleName(middleName);
+        student.setMobileNumber(mobileNumber);
+        student.setParentName(parentName);
+        student.setDateOfBirth(dateOfBirth);
+        student.setGender(gender);
+        student.setRollNumber(rollNumber);
+        student.setStudentClass(studentClass);
+    }
+
+    private StudentResponse buildResponse(Student student) {
+        Optional<Teacher> teacherOpt = Optional.empty();
+        if (student.getSection() != null && student.getSection().getName() != null) {
+            String match1 = student.getStudentClass() + "Section " + student.getSection().getName();
+            String match2 = student.getStudentClass() + student.getSection().getName();
+            
+            teacherOpt = teacherRepository.findByClassTeacher(match1);
+            if (teacherOpt.isEmpty()) {
+                teacherOpt = teacherRepository.findByClassTeacher(match2);
+            }
+        }
+        
+        if (teacherOpt.isEmpty()) {
+            teacherOpt = teacherRepository.findByClassTeacher(student.getStudentClass());
+        }
+
+        Long teacherId = null;
+        String teacherName = null;
+        String teacherEmail = null;
+        String teacherMobile = null;
+
+        if (teacherOpt.isPresent()) {
+            Teacher t = teacherOpt.get();
+            teacherId = t.getId();
+            teacherName = t.getName();
+            teacherEmail = t.getEmailId();
+            teacherMobile = t.getMobileNumber();
+        }
+        
+        List<Attendance> attendance = attendanceRepository.findByStudentId(student.getStudentId());
+        Long classId = student.getSchoolClass() != null ? student.getSchoolClass().getId() : null;
+
+        return new StudentResponse(
+                student.getId(), student.getFirstName(), student.getLastName(),
+                student.getMiddleName(), student.getMobileNumber(), student.getParentName(),
+                student.getDateOfBirth(), student.getGender(), student.getRollNumber(), student.getStudentClass(),
+                classId, teacherId, teacherName, teacherEmail, teacherMobile, attendance,
+                student.getStudentId());
+    }
+}

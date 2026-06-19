@@ -1,0 +1,13 @@
+package com.lumo.backend.admin.dto;
+
+import java.util.List;
+
+public record TeacherProfileResponse(
+        Long id,
+        String emailId,
+        String name,
+        String mobileNumber,
+        String classTeacher,
+        List<String> classes,
+        List<String> subjects) {
+}
