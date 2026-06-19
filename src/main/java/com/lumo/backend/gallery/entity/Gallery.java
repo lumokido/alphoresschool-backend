@@ -22,7 +22,10 @@ public class Gallery {
     private String title;
     private String description;
 
-    @Column(name = "image_url")
+    @Enumerated(EnumType.STRING)
+    private GalleryType type;
+
+    @Column(name = "image_url", length = 2000)
     private String imageUrl;
 
     @Column(name = "uploaded_by")

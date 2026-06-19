@@ -9,7 +9,8 @@ CREATE TABLE gallery (
     id BIGSERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     description VARCHAR(1000),
-    image_url VARCHAR(500) NOT NULL,
+    type VARCHAR(255),
+    image_url VARCHAR(2000) NOT NULL,
     uploaded_by VARCHAR(255) NOT NULL,
     created_at TIMESTAMP NOT NULL
 );

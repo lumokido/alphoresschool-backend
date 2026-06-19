@@ -25,34 +25,60 @@ public class GalleryService {
     }
 
     @Transactional
-    public GalleryUploadResponse uploadImage(String title, String description, MultipartFile file, String uploadedBy) {
-        // Save the file physically
-        String imageUrl = fileStorageService.saveGalleryImage(file);
+    public GalleryUploadResponse uploadImage(String title, String description, String type, MultipartFile[] files, String uploadedBy) {
+        if (files == null || files.length == 0) {
+            throw new IllegalArgumentException("No files uploaded");
+        }
+
+        java.util.List<String> imageUrls = new java.util.ArrayList<>();
+        for (MultipartFile file : files) {
+            String url = fileStorageService.saveGalleryImage(file);
+            imageUrls.add(url);
+        }
+
+        String joinedUrls = String.join(",", imageUrls);
 
         // Save DB record
         Gallery gallery = new Gallery();
         gallery.setTitle(title);
         gallery.setDescription(description);
-        gallery.setImageUrl(imageUrl);
+        gallery.setType(com.lumo.backend.gallery.entity.GalleryType.fromString(type));
+        gallery.setImageUrl(joinedUrls);
         gallery.setUploadedBy(uploadedBy);
         gallery.setCreatedAt(LocalDateTime.now());
 
         galleryRepository.save(gallery);
 
-        return new GalleryUploadResponse(true, "Image uploaded successfully", imageUrl);
+        String firstUrl = imageUrls.get(0);
+        return new GalleryUploadResponse(true, "Image uploaded successfully", firstUrl, imageUrls);
     }
 
     @Transactional(readOnly = true)
-    public List<GalleryResponse> getAllGalleryItems() {
-        return galleryRepository.findAllByOrderByCreatedAtDesc().stream()
-                .map(g -> new GalleryResponse(
-                        g.getId(),
-                        g.getTitle(),
-                        g.getDescription(),
-                        g.getImageUrl(),
-                        g.getUploadedBy(),
-                        g.getCreatedAt()
-                ))
+    public List<GalleryResponse> getAllGalleryItems(String typeFilter) {
+        List<Gallery> items;
+        if (typeFilter != null && !typeFilter.isBlank()) {
+            com.lumo.backend.gallery.entity.GalleryType filterEnum = com.lumo.backend.gallery.entity.GalleryType.fromString(typeFilter);
+            items = galleryRepository.findByTypeOrderByCreatedAtDesc(filterEnum);
+        } else {
+            items = galleryRepository.findAllByOrderByCreatedAtDesc();
+        }
+        return items.stream()
+                .map(g -> {
+                    java.util.List<String> urls = g.getImageUrl() != null && !g.getImageUrl().isEmpty()
+                            ? java.util.Arrays.asList(g.getImageUrl().split(","))
+                            : List.of();
+                    String firstUrl = urls.isEmpty() ? "" : urls.get(0);
+                    return new GalleryResponse(
+                            g.getId(),
+                            g.getTitle(),
+                            g.getDescription(),
+                            g.getType() != null ? g.getType().name() : null,
+                            firstUrl,
+                            urls,
+                            g.getUploadedBy(),
+                            g.getCreatedAt()
+                    );
+                })
                 .collect(Collectors.toList());
     }
 
@@ -61,8 +87,12 @@ public class GalleryService {
         Gallery gallery = galleryRepository.findById(id)
                 .orElseThrow(() -> new StorageFileNotFoundException("Gallery item not found with ID: " + id));
 
-        // Delete physical file
-        fileStorageService.deleteFile(gallery.getImageUrl());
+        if (gallery.getImageUrl() != null && !gallery.getImageUrl().isEmpty()) {
+            String[] urls = gallery.getImageUrl().split(",");
+            for (String url : urls) {
+                fileStorageService.deleteFile(url.trim());
+            }
+        }
 
         // Delete database record
         galleryRepository.delete(gallery);

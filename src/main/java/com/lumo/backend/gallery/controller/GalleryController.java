@@ -27,7 +27,8 @@ public class GalleryController {
     public ResponseEntity<GalleryUploadResponse> uploadGalleryImage(
             @RequestParam("title") String title,
             @RequestParam("description") String description,
-            @RequestParam("file") MultipartFile file,
+            @RequestParam("type") String type,
+            @RequestParam("file") MultipartFile[] files,
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
 
         String adminEmail = getAdminEmail(authorizationHeader);
@@ -35,19 +36,20 @@ public class GalleryController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Only Admins are authorized to upload gallery images.");
         }
 
-        GalleryUploadResponse response = galleryService.uploadImage(title, description, file, adminEmail);
+        GalleryUploadResponse response = galleryService.uploadImage(title, description, type, files, adminEmail);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping
     public ResponseEntity<List<GalleryResponse>> getAllGallery(
+            @RequestParam(value = "type", required = false) String type,
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
 
         if (!isAuthenticated(authorizationHeader)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized access.");
         }
 
-        return ResponseEntity.ok(galleryService.getAllGalleryItems());
+        return ResponseEntity.ok(galleryService.getAllGalleryItems(type));
     }
 
     @DeleteMapping("/{id}")
