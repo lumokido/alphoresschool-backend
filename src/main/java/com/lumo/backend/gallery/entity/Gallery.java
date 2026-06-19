@@ -1,22 +1,14 @@
 package com.lumo.backend.gallery.entity;
 
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
-import java.util.ArrayList;
-import java.util.List;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "galleries")
+@Table(name = "gallery")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,6 +22,12 @@ public class Gallery {
     private String title;
     private String description;
 
-    @OneToMany(mappedBy = "gallery", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    private List<GalleryImage> images = new ArrayList<>();
+    @Column(name = "image_url")
+    private String imageUrl;
+
+    @Column(name = "uploaded_by")
+    private String uploadedBy;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 }

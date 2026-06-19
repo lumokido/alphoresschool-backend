@@ -10,5 +10,6 @@ public record StudentProfileResponse(
         String dateOfBirth,
         String gender,
         String rollNumber,
-        String studentClass
+        String studentClass,
+        String profilePhotoUrl
 ) {}

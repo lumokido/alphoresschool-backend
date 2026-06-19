@@ -17,5 +17,6 @@ public record StudentResponse(
     String teacherEmail,
     String teacherMobile,
     java.util.List<com.lumo.backend.attendance.entity.Attendance> attendance,
-    String admissionId
+    String admissionId,
+    String profilePhotoUrl
 ) {}

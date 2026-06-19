@@ -60,6 +60,8 @@ public class Student {
     @Column(name = "student_class")
     private String studentClass;  // kept for backwards compatibility matching teacher.classTeacher
 
+    @Column(name = "profile_photo_url", length = 500)
+    private String profilePhotoUrl;
 
     @Embedded
     private FeeDetails feeDetails;

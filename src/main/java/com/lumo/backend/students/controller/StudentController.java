@@ -9,19 +9,18 @@ import com.lumo.backend.students.dto.RefreshTokenResponse;
 import com.lumo.backend.students.dto.StudentLoginRequest;
 import com.lumo.backend.students.dto.StudentLoginResponse;
 import com.lumo.backend.students.service.StudentService;
+import com.lumo.backend.students.repository.StudentRepository;
+import com.lumo.backend.students.entity.Student;
+import com.lumo.backend.service.FileStorageService;
+import com.lumo.backend.security.JwtService;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/students")
@@ -29,6 +28,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class StudentController {
 
     private final StudentService studentService;
+    private final StudentRepository studentRepository;
+    private final FileStorageService fileStorageService;
+    private final JwtService jwtService;
 
     // POST /api/students/add
     @PostMapping("/add")
@@ -98,5 +100,93 @@ public class StudentController {
     @GetMapping("/class/{classId}/section/{sectionId}")
     public ResponseEntity<java.util.List<StudentResponse>> getStudentsByClassAndSection(@PathVariable Long classId, @PathVariable Long sectionId) {
         return ResponseEntity.ok(studentService.getStudentsByClassAndSection(classId, sectionId));
+    }
+
+    // POST /api/students/{studentId}/photo
+    @PostMapping("/{studentId}/photo")
+    public ResponseEntity<Map<String, Object>> uploadStudentPhoto(
+            @PathVariable("studentId") String studentIdStr,
+            @RequestParam("file") MultipartFile file,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+
+        Student student = findStudentByIdOrAlphanumeric(studentIdStr);
+        checkPhotoPermission(authorizationHeader, student);
+
+        String photoUrl = fileStorageService.saveStudentPhoto(file, student.getId());
+
+        student.setProfilePhotoUrl(photoUrl);
+        studentRepository.save(student);
+
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Profile photo uploaded successfully",
+            "profilePhotoUrl", photoUrl
+        ));
+    }
+
+    // GET /api/students/{studentId}/photo
+    @GetMapping("/{studentId}/photo")
+    public ResponseEntity<Map<String, String>> getStudentPhoto(
+            @PathVariable("studentId") String studentIdStr) {
+
+        Student student = findStudentByIdOrAlphanumeric(studentIdStr);
+        return ResponseEntity.ok(Map.of(
+            "profilePhotoUrl", student.getProfilePhotoUrl() != null ? student.getProfilePhotoUrl() : ""
+        ));
+    }
+
+    // DELETE /api/students/{studentId}/photo
+    @DeleteMapping("/{studentId}/photo")
+    public ResponseEntity<Map<String, Object>> deleteStudentPhoto(
+            @PathVariable("studentId") String studentIdStr,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+
+        Student student = findStudentByIdOrAlphanumeric(studentIdStr);
+        checkPhotoPermission(authorizationHeader, student);
+
+        if (student.getProfilePhotoUrl() != null && !student.getProfilePhotoUrl().isEmpty()) {
+            fileStorageService.deleteFile(student.getProfilePhotoUrl());
+            student.setProfilePhotoUrl(null);
+            studentRepository.save(student);
+        }
+
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Profile photo deleted successfully"
+        ));
+    }
+
+    private Student findStudentByIdOrAlphanumeric(String identifier) {
+        try {
+            Long id = Long.parseLong(identifier);
+            java.util.Optional<Student> studentOpt = studentRepository.findById(id);
+            if (studentOpt.isPresent()) {
+                return studentOpt.get();
+            }
+        } catch (NumberFormatException e) {
+            // Ignore, try alphanumeric
+        }
+        return studentRepository.findByStudentId(identifier)
+                .orElseThrow(() -> new com.lumo.backend.exception.StorageFileNotFoundException("Student not found with ID: " + identifier));
+    }
+
+    private void checkPhotoPermission(String authHeader, Student student) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized access.");
+        }
+        String token = authHeader.substring(7).trim();
+        String adminEmail = jwtService.extractAdminSubject(token);
+        if (adminEmail != null) {
+            return; // Admin allowed
+        }
+        String teacherEmail = jwtService.extractTeacherSubject(token);
+        if (teacherEmail != null) {
+            return; // Teacher allowed
+        }
+        String studentId = jwtService.extractStudentSubject(token);
+        if (studentId != null && studentId.equals(student.getStudentId())) {
+            return; // Student themselves allowed
+        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission to modify this student's profile photo.");
     }
 }

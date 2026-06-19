@@ -222,7 +222,8 @@ public class TeacherService {
                 s.getDateOfBirth(),
                 s.getGender(),
                 s.getRollNumber(),
-                s.getStudentClass()
+                s.getStudentClass(),
+                s.getProfilePhotoUrl()
             );
     }
 }

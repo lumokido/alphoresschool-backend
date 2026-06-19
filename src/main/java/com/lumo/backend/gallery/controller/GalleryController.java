@@ -1,48 +1,84 @@
 package com.lumo.backend.gallery.controller;
 
-import com.lumo.backend.gallery.dto.GalleryRequest;
-import com.lumo.backend.gallery.dto.GalleryImageRequest;
-import com.lumo.backend.gallery.entity.Gallery;
-import com.lumo.backend.gallery.entity.GalleryImage;
+import com.lumo.backend.gallery.dto.GalleryResponse;
+import com.lumo.backend.gallery.dto.GalleryUploadResponse;
 import com.lumo.backend.gallery.service.GalleryService;
+import com.lumo.backend.security.JwtService;
 import java.util.List;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/gallery")
 public class GalleryController {
 
     private final GalleryService galleryService;
+    private final JwtService jwtService;
 
-    public GalleryController(GalleryService galleryService) {
+    public GalleryController(GalleryService galleryService, JwtService jwtService) {
         this.galleryService = galleryService;
+        this.jwtService = jwtService;
     }
 
-    @PostMapping
-    public ResponseEntity<Gallery> createGallery(@RequestBody GalleryRequest request) {
-        return ResponseEntity.ok(galleryService.createGallery(request));
-    }
+    @PostMapping("/upload")
+    public ResponseEntity<GalleryUploadResponse> uploadGalleryImage(
+            @RequestParam("title") String title,
+            @RequestParam("description") String description,
+            @RequestParam("file") MultipartFile file,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
 
-    @PostMapping("/{galleryId}/images")
-    public ResponseEntity<GalleryImage> addImageToGallery(
-            @PathVariable Long galleryId,
-            @RequestBody GalleryImageRequest request) {
-        return ResponseEntity.ok(galleryService.addImageToGallery(galleryId, request));
+        String adminEmail = getAdminEmail(authorizationHeader);
+        if (adminEmail == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Only Admins are authorized to upload gallery images.");
+        }
+
+        GalleryUploadResponse response = galleryService.uploadImage(title, description, file, adminEmail);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping
-    public ResponseEntity<List<Gallery>> getAllGalleries() {
-        return ResponseEntity.ok(galleryService.getAllGalleries());
+    public ResponseEntity<List<GalleryResponse>> getAllGallery(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+
+        if (!isAuthenticated(authorizationHeader)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized access.");
+        }
+
+        return ResponseEntity.ok(galleryService.getAllGalleryItems());
     }
 
-    @GetMapping("/{galleryId}/images")
-    public ResponseEntity<List<GalleryImage>> getImagesByGallery(@PathVariable Long galleryId) {
-        return ResponseEntity.ok(galleryService.getImagesByGallery(galleryId));
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteGallery(
+            @PathVariable("id") Long id,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+
+        String adminEmail = getAdminEmail(authorizationHeader);
+        if (adminEmail == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Only Admins are authorized to delete gallery items.");
+        }
+
+        galleryService.deleteGalleryItem(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    private String getAdminEmail(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return null;
+        }
+        String token = authHeader.substring(7).trim();
+        return jwtService.extractAdminSubject(token);
+    }
+
+    private boolean isAuthenticated(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return false;
+        }
+        String token = authHeader.substring(7).trim();
+        return jwtService.extractAdminSubject(token) != null ||
+               jwtService.extractTeacherSubject(token) != null ||
+               jwtService.extractStudentSubject(token) != null;
     }
 }
