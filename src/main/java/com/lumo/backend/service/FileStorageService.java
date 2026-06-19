@@ -51,6 +51,22 @@ public class FileStorageService {
         return generatePublicUrl("students", filename);
     }
 
+    public String saveTempStudentPhoto(MultipartFile file) {
+        validateFile(file, ALLOWED_IMAGE_EXTENSIONS);
+
+        String originalFilename = file.getOriginalFilename();
+        String extension = getFileExtension(originalFilename);
+        if (extension.isEmpty()) {
+            extension = "jpg";
+        }
+
+        String ext = extension.equalsIgnoreCase("jpeg") ? "jpg" : extension.toLowerCase();
+        String filename = String.format("student_temp_%d.%s", System.currentTimeMillis(), ext);
+
+        saveFile(file, "students", filename);
+        return generatePublicUrl("students", filename);
+    }
+
     public String saveGalleryImage(MultipartFile file) {
         validateFile(file, ALLOWED_IMAGE_EXTENSIONS);
 

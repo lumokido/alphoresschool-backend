@@ -109,6 +109,16 @@ public class StudentController {
             @RequestParam("file") MultipartFile file,
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
 
+        if ("temp".equalsIgnoreCase(studentIdStr)) {
+            checkTempPhotoPermission(authorizationHeader);
+            String photoUrl = fileStorageService.saveTempStudentPhoto(file);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Profile photo uploaded successfully",
+                "profilePhotoUrl", photoUrl
+            ));
+        }
+
         Student student = findStudentByIdOrAlphanumeric(studentIdStr);
         checkPhotoPermission(authorizationHeader, student);
 
@@ -188,5 +198,21 @@ public class StudentController {
             return; // Student themselves allowed
         }
         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission to modify this student's profile photo.");
+    }
+
+    private void checkTempPhotoPermission(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized access.");
+        }
+        String token = authHeader.substring(7).trim();
+        String adminEmail = jwtService.extractAdminSubject(token);
+        if (adminEmail != null) {
+            return; // Admin allowed
+        }
+        String teacherEmail = jwtService.extractTeacherSubject(token);
+        if (teacherEmail != null) {
+            return; // Teacher allowed
+        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission to upload student photos.");
     }
 }
