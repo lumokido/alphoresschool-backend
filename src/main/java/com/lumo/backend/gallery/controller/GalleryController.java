@@ -52,6 +52,18 @@ public class GalleryController {
         return ResponseEntity.ok(galleryService.getAllGalleryItems(type));
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<GalleryResponse> getGalleryItem(
+            @PathVariable("id") Long id,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+
+        if (!isAuthenticated(authorizationHeader)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized access.");
+        }
+
+        return ResponseEntity.ok(galleryService.getGalleryItemById(id));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteGallery(
             @PathVariable("id") Long id,

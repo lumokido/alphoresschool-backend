@@ -82,6 +82,28 @@ public class GalleryService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public GalleryResponse getGalleryItemById(Long id) {
+        Gallery g = galleryRepository.findById(id)
+                .orElseThrow(() -> new StorageFileNotFoundException("Gallery item not found with ID: " + id));
+
+        java.util.List<String> urls = g.getImageUrl() != null && !g.getImageUrl().isEmpty()
+                ? java.util.Arrays.asList(g.getImageUrl().split(","))
+                : List.of();
+        String firstUrl = urls.isEmpty() ? "" : urls.get(0);
+
+        return new GalleryResponse(
+                g.getId(),
+                g.getTitle(),
+                g.getDescription(),
+                g.getType() != null ? g.getType().name() : null,
+                firstUrl,
+                urls,
+                g.getUploadedBy(),
+                g.getCreatedAt()
+        );
+    }
+
     @Transactional
     public void deleteGalleryItem(Long id) {
         Gallery gallery = galleryRepository.findById(id)
