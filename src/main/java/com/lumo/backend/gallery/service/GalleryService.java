@@ -105,6 +105,49 @@ public class GalleryService {
     }
 
     @Transactional
+    public GalleryUploadResponse updateGalleryItem(Long id, String title, String description, String type, MultipartFile[] files) {
+        Gallery gallery = galleryRepository.findById(id)
+                .orElseThrow(() -> new StorageFileNotFoundException("Gallery item not found with ID: " + id));
+
+        if (title != null && !title.isBlank()) {
+            gallery.setTitle(title);
+        }
+        if (description != null) {
+            gallery.setDescription(description);
+        }
+        if (type != null && !type.isBlank()) {
+            gallery.setType(com.lumo.backend.gallery.entity.GalleryType.fromString(type));
+        }
+
+        if (files != null && files.length > 0 && !files[0].isEmpty()) {
+            // Delete old files
+            if (gallery.getImageUrl() != null && !gallery.getImageUrl().isEmpty()) {
+                String[] urls = gallery.getImageUrl().split(",");
+                for (String url : urls) {
+                    fileStorageService.deleteFile(url.trim());
+                }
+            }
+
+            // Upload new files
+            java.util.List<String> imageUrls = new java.util.ArrayList<>();
+            for (MultipartFile file : files) {
+                String url = fileStorageService.saveGalleryImage(file);
+                imageUrls.add(url);
+            }
+            gallery.setImageUrl(String.join(",", imageUrls));
+        }
+
+        galleryRepository.save(gallery);
+
+        java.util.List<String> urls = gallery.getImageUrl() != null && !gallery.getImageUrl().isEmpty()
+                ? java.util.Arrays.asList(gallery.getImageUrl().split(","))
+                : List.of();
+        String firstUrl = urls.isEmpty() ? "" : urls.get(0);
+
+        return new GalleryUploadResponse(true, "Gallery item updated successfully", firstUrl, urls);
+    }
+
+    @Transactional
     public void deleteGalleryItem(Long id) {
         Gallery gallery = galleryRepository.findById(id)
                 .orElseThrow(() -> new StorageFileNotFoundException("Gallery item not found with ID: " + id));

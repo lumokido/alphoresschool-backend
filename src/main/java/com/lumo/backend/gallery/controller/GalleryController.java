@@ -64,6 +64,24 @@ public class GalleryController {
         return ResponseEntity.ok(galleryService.getGalleryItemById(id));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<GalleryUploadResponse> updateGallery(
+            @PathVariable("id") Long id,
+            @RequestParam(value = "title", required = false) String title,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "type", required = false) String type,
+            @RequestParam(value = "file", required = false) MultipartFile[] files,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+
+        String adminEmail = getAdminEmail(authorizationHeader);
+        if (adminEmail == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Only Admins are authorized to update gallery items.");
+        }
+
+        GalleryUploadResponse response = galleryService.updateGalleryItem(id, title, description, type, files);
+        return ResponseEntity.ok(response);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteGallery(
             @PathVariable("id") Long id,
