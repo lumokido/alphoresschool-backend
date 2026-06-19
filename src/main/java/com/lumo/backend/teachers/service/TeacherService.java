@@ -93,9 +93,24 @@ public class TeacherService {
         return false;
     }
 
-    public String loginTeacher(TeacherLogin request) {
+    public java.util.Map<String, String> loginTeacher(TeacherLogin request) {
         Teacher teacher = teacherRepository.findByEmailId(request.emailId()).orElse(null);
         if (teacher == null || !passwordEncoder.matches(request.passwordHash(), teacher.getPasswordHash())) {
+            return null;
+        }
+        java.util.Map<String, String> tokens = new java.util.HashMap<>();
+        tokens.put("accessToken", jwtService.generateTeacherToken(teacher.getEmailId()));
+        tokens.put("refreshToken", jwtService.generateTeacherRefreshToken(teacher.getEmailId()));
+        return tokens;
+    }
+
+    public String refreshAccessToken(String refreshToken) {
+        String emailId = jwtService.extractTeacherSubject(refreshToken);
+        if (emailId == null) {
+            return null;
+        }
+        Teacher teacher = teacherRepository.findByEmailId(emailId).orElse(null);
+        if (teacher == null) {
             return null;
         }
         return jwtService.generateTeacherToken(teacher.getEmailId());

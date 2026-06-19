@@ -29,12 +29,23 @@ public class AdminAuthController {
 
     @PostMapping("/login")
     public ResponseEntity<AdminLoginResponse> login(@Valid @RequestBody AdminLoginRequest request) {
-        String token = adminAuthService.login(request);
-        if (token == null) {
+        java.util.Map<String, String> tokens = adminAuthService.login(request);
+        if (tokens == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new AdminLoginResponse(false, "Invalid username or password", null, null));
+                    .body(new AdminLoginResponse(false, "Invalid username or password", null, null, null));
         }
-        return ResponseEntity.ok(new AdminLoginResponse(true, "Principal login successful", token, "principal"));
+        return ResponseEntity.ok(new AdminLoginResponse(true, "Principal login successful", tokens.get("accessToken"), tokens.get("refreshToken"), "principal"));
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<com.lumo.backend.students.dto.RefreshTokenResponse> refreshToken(
+            @RequestBody com.lumo.backend.students.dto.RefreshTokenRequest request) {
+        String newAccessToken = adminAuthService.refreshAccessToken(request.refreshToken());
+        if (newAccessToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new com.lumo.backend.students.dto.RefreshTokenResponse(false, "Invalid or expired refresh token", null));
+        }
+        return ResponseEntity.ok(new com.lumo.backend.students.dto.RefreshTokenResponse(true, "Token refreshed successfully", newAccessToken));
     }
 
     @PostMapping("/register")

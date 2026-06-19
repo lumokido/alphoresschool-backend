@@ -26,9 +26,24 @@ public class AdminAuthService {
         this.jwtService = jwtService;
     }
 
-    public String login(AdminLoginRequest request) {
+    public java.util.Map<String, String> login(AdminLoginRequest request) {
         Principal principal = principalRepository.findByEmailId(request.emailId()).orElse(null);
         if (principal == null || !passwordEncoder.matches(request.passwordHash(), principal.getPasswordHash())) {
+            return null;
+        }
+        java.util.Map<String, String> tokens = new java.util.HashMap<>();
+        tokens.put("accessToken", jwtService.generateAdminToken(principal.getEmailId()));
+        tokens.put("refreshToken", jwtService.generateAdminRefreshToken(principal.getEmailId()));
+        return tokens;
+    }
+
+    public String refreshAccessToken(String refreshToken) {
+        String emailId = jwtService.extractAdminSubject(refreshToken);
+        if (emailId == null) {
+            return null;
+        }
+        Principal principal = principalRepository.findByEmailId(emailId).orElse(null);
+        if (principal == null) {
             return null;
         }
         return jwtService.generateAdminToken(principal.getEmailId());

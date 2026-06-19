@@ -83,12 +83,23 @@ public class TeacherController {
     public ResponseEntity<TeacherResponse> loginTeacher(
             @Valid @RequestBody TeacherLogin request,
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
-        String token = teacherService.loginTeacher(request);
-        if (token == null) {
+        java.util.Map<String, String> tokens = teacherService.loginTeacher(request);
+        if (tokens == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new TeacherResponse(false, "Invalid username or password", null));
+                    .body(new TeacherResponse(false, "Invalid username or password", null, null));
         }
-        return ResponseEntity.ok(new TeacherResponse(true, "Teacher login successful", token));
+        return ResponseEntity.ok(new TeacherResponse(true, "Teacher login successful", tokens.get("accessToken"), tokens.get("refreshToken")));
+    }
+
+    @PostMapping("/login-teacher/refresh-token")
+    public ResponseEntity<com.lumo.backend.students.dto.RefreshTokenResponse> refreshTeacherToken(
+            @RequestBody com.lumo.backend.students.dto.RefreshTokenRequest request) {
+        String newAccessToken = teacherService.refreshAccessToken(request.refreshToken());
+        if (newAccessToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new com.lumo.backend.students.dto.RefreshTokenResponse(false, "Invalid or expired refresh token", null));
+        }
+        return ResponseEntity.ok(new com.lumo.backend.students.dto.RefreshTokenResponse(true, "Token refreshed successfully", newAccessToken));
     }
 
     @GetMapping("/get-all")

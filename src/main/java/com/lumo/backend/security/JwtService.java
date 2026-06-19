@@ -39,8 +39,16 @@ public class JwtService {
         return buildToken(adminSigningKey, subject, adminExpirationMillis);
     }
 
+    public String generateAdminRefreshToken(String subject) {
+        return buildToken(adminSigningKey, subject, adminExpirationMillis * 24 * 7);
+    }
+
     public String generateTeacherToken(String subject) {
         return buildToken(teacherSigningKey, subject, teacherExpirationMillis);
+    }
+
+    public String generateTeacherRefreshToken(String subject) {
+        return buildToken(teacherSigningKey, subject, teacherExpirationMillis * 24 * 7);
     }
 
     public String generateStudentToken(String subject) {
