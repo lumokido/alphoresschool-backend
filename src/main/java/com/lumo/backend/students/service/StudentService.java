@@ -265,6 +265,7 @@ public class StudentService {
                 student.getMiddleName(), student.getMobileNumber(), student.getParentName(),
                 student.getDateOfBirth(), student.getGender(), student.getRollNumber(), student.getStudentClass(),
                 classId, teacherId, teacherName, teacherEmail, teacherMobile, attendance,
-                student.getStudentId(), student.getProfilePhotoUrl());
+                student.getStudentId(), student.getProfilePhotoUrl() != null ? student.getProfilePhotoUrl() : ""
+            );
     }
 }
