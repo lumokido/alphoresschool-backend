@@ -10,5 +10,6 @@ public record StudentAdd(
         String gender,
         String rollNumber,
         String studentClass,
-        String sectionName
+        String sectionName,
+        String profilePhotoUrl
 ) {}

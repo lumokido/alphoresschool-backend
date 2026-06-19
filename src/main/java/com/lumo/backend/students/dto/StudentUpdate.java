@@ -10,5 +10,6 @@ public record StudentUpdate(
     String gender,
     String rollNumber,
     String studentClass,
-    String marks
+    String marks,
+    String profilePhotoUrl
 ) {}

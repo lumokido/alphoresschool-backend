@@ -78,7 +78,7 @@ public class StudentService {
         Student student = new Student();
         mapFields(student, request.firstName(), request.lastName(), request.middleName(),
                 mobile, request.parentName(), request.dateOfBirth(),
-                request.gender(), request.rollNumber(), request.studentClass());
+                request.gender(), request.rollNumber(), request.studentClass(), request.profilePhotoUrl());
 
         // Generate unique Student ID: ALP26 + 4-digit sequence
         long nextNum = studentRepository.count() + 1;
@@ -134,7 +134,7 @@ public class StudentService {
             teacherRepository.save(teacher);
         }
         
-        return new StudentAddResponse("Student added successfully", saved.getId());
+        return new StudentAddResponse("Student added successfully", saved.getId(), saved.getProfilePhotoUrl() != null ? saved.getProfilePhotoUrl() : "");
     }
 
     public List<StudentResponse> getStudentsByClass(String className) {
@@ -201,7 +201,7 @@ public class StudentService {
 
         mapFields(student, request.firstName(), request.lastName(), request.middleName(),
                 request.mobileNumber(), request.parentName(), request.dateOfBirth(),
-                request.gender(), request.rollNumber(), request.studentClass());
+                request.gender(), request.rollNumber(), request.studentClass(), request.profilePhotoUrl());
 
         Student updated = studentRepository.save(student);
         return buildResponse(updated);
@@ -216,7 +216,7 @@ public class StudentService {
 
     private void mapFields(Student student, String firstName, String lastName,
             String middleName, String mobileNumber, String parentName,
-            String dateOfBirth, String gender, String rollNumber, String studentClass) {
+            String dateOfBirth, String gender, String rollNumber, String studentClass, String profilePhotoUrl) {
         student.setFirstName(firstName);
         student.setLastName(lastName);
         student.setMiddleName(middleName);
@@ -226,7 +226,8 @@ public class StudentService {
         student.setGender(gender);
         student.setRollNumber(rollNumber);
         student.setStudentClass(studentClass);
-    }
+        student.setProfilePhotoUrl(profilePhotoUrl);
+        }
 
     private StudentResponse buildResponse(Student student) {
         Optional<Teacher> teacherOpt = Optional.empty();

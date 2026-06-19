@@ -37,7 +37,7 @@ public class StudentController {
     public ResponseEntity<StudentAddResponse> addStudent(@RequestBody StudentAdd request ,  @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
         System.out.println(authorizationHeader);
         if (authorizationHeader == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new StudentAddResponse("Unauthorized", null));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new StudentAddResponse("Unauthorized", null, null));
         }
         return ResponseEntity.ok(studentService.addStudent(request , authorizationHeader));
     }
