@@ -2,5 +2,15 @@ package com.lumo.backend.teachers.dto;
 
 import java.util.List;
 
-public record GetAllTeacherProfile(List<TeacherProfileResponse> teachers) {
+public record GetAllTeacherProfile(
+    List<TeacherProfileResponse> teachers,
+    int pageNumber,
+    int pageSize,
+    long totalElements,
+    int totalPages,
+    boolean last
+) {
+    public GetAllTeacherProfile(List<TeacherProfileResponse> teachers) {
+        this(teachers, 0, teachers.size(), teachers.size(), 1, true);
+    }
 }

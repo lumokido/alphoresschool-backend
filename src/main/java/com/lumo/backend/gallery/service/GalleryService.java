@@ -3,12 +3,19 @@ package com.lumo.backend.gallery.service;
 import com.lumo.backend.exception.StorageFileNotFoundException;
 import com.lumo.backend.gallery.dto.GalleryResponse;
 import com.lumo.backend.gallery.dto.GalleryUploadResponse;
+import com.lumo.backend.gallery.dto.PaginatedResponse;
 import com.lumo.backend.gallery.entity.Gallery;
+import com.lumo.backend.gallery.entity.GalleryType;
 import com.lumo.backend.gallery.repository.GalleryRepository;
 import com.lumo.backend.service.FileStorageService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,6 +32,7 @@ public class GalleryService {
     }
 
     @Transactional
+    @CacheEvict(value = "gallery", allEntries = true)
     public GalleryUploadResponse uploadImage(String title, String description, String type, MultipartFile[] files, String uploadedBy) {
         if (files == null || files.length == 0) {
             throw new IllegalArgumentException("No files uploaded");
@@ -54,15 +62,19 @@ public class GalleryService {
     }
 
     @Transactional(readOnly = true)
-    public List<GalleryResponse> getAllGalleryItems(String typeFilter) {
-        List<Gallery> items;
+    @Cacheable(value = "gallery", key = "'all-' + (#typeFilter != null ? #typeFilter : 'none') + '-' + #page + '-' + #size")
+    public PaginatedResponse<GalleryResponse> getAllGalleryItems(String typeFilter, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Gallery> galleryPage;
+
         if (typeFilter != null && !typeFilter.isBlank()) {
-            com.lumo.backend.gallery.entity.GalleryType filterEnum = com.lumo.backend.gallery.entity.GalleryType.fromString(typeFilter);
-            items = galleryRepository.findByTypeOrderByCreatedAtDesc(filterEnum);
+            GalleryType filterEnum = GalleryType.fromString(typeFilter);
+            galleryPage = galleryRepository.findByTypeOrderByCreatedAtDesc(filterEnum, pageable);
         } else {
-            items = galleryRepository.findAllByOrderByCreatedAtDesc();
+            galleryPage = galleryRepository.findAllByOrderByCreatedAtDesc(pageable);
         }
-        return items.stream()
+
+        List<GalleryResponse> content = galleryPage.getContent().stream()
                 .map(g -> {
                     java.util.List<String> urls = g.getImageUrl() != null && !g.getImageUrl().isEmpty()
                             ? java.util.Arrays.asList(g.getImageUrl().split(","))
@@ -80,9 +92,19 @@ public class GalleryService {
                     );
                 })
                 .collect(Collectors.toList());
+
+        return new PaginatedResponse<>(
+                content,
+                galleryPage.getNumber(),
+                galleryPage.getSize(),
+                galleryPage.getTotalElements(),
+                galleryPage.getTotalPages(),
+                galleryPage.isLast()
+        );
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "gallery", key = "#id")
     public GalleryResponse getGalleryItemById(Long id) {
         Gallery g = galleryRepository.findById(id)
                 .orElseThrow(() -> new StorageFileNotFoundException("Gallery item not found with ID: " + id));
@@ -105,6 +127,7 @@ public class GalleryService {
     }
 
     @Transactional
+    @CacheEvict(value = "gallery", allEntries = true)
     public GalleryUploadResponse updateGalleryItem(Long id, String title, String description, String type, MultipartFile[] files) {
         Gallery gallery = galleryRepository.findById(id)
                 .orElseThrow(() -> new StorageFileNotFoundException("Gallery item not found with ID: " + id));
@@ -148,6 +171,7 @@ public class GalleryService {
     }
 
     @Transactional
+    @CacheEvict(value = "gallery", allEntries = true)
     public void deleteGalleryItem(Long id) {
         Gallery gallery = galleryRepository.findById(id)
                 .orElseThrow(() -> new StorageFileNotFoundException("Gallery item not found with ID: " + id));

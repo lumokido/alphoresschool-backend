@@ -16,6 +16,7 @@ import com.lumo.backend.students.repository.StudentRepository;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -41,6 +42,7 @@ public class TeacherService {
         this.classRepository = classRepository;
     }
 
+    @CacheEvict(value = {"teachersByEmail", "teachersByClass"}, allEntries = true)
     public boolean addTeacher(TeacherAdd request) {
         Teacher teacher = new Teacher();
         teacher.setEmailId(request.emailId());
@@ -54,6 +56,7 @@ public class TeacherService {
         return savedTeacher.getId() != null;
     }
 
+    @CacheEvict(value = {"teachersByEmail", "teachersByClass"}, allEntries = true)
     public boolean updateTeacher(TeacherUpdateRequest request) {
         Teacher teacher = teacherRepository.findByEmailId(request.emailId()).orElse(null);
         if (teacher == null) {
@@ -69,6 +72,7 @@ public class TeacherService {
         return savedTeacher.getId() != null;
     }
 
+    @CacheEvict(value = {"teachersByEmail", "teachersByClass"}, allEntries = true)
     public boolean updateTeacherById(Long id, TeacherUpdateRequest request) {
         Teacher teacher = teacherRepository.findById(id).orElse(null);
         if (teacher == null) {
@@ -85,6 +89,7 @@ public class TeacherService {
         return savedTeacher.getId() != null;
     }
 
+    @CacheEvict(value = {"teachersByEmail", "teachersByClass"}, allEntries = true)
     public boolean deleteTeacher(Long id) {
         if (teacherRepository.existsById(id)) {
             teacherRepository.deleteById(id);
@@ -116,7 +121,22 @@ public class TeacherService {
         return jwtService.generateTeacherToken(teacher.getEmailId());
     }
 
-    public GetAllTeacherProfile getTeacherProfile() {
+    public GetAllTeacherProfile getTeacherProfile(Integer page, Integer size) {
+        if (page != null && size != null) {
+            org.springframework.data.domain.Page<Teacher> teacherPage = teacherRepository.findAll(org.springframework.data.domain.PageRequest.of(page, size));
+            List<TeacherProfileResponse> rows = teacherPage.getContent().stream()
+                    .map(teacher -> new TeacherProfileResponse(
+                            teacher.getId(),
+                            teacher.getEmailId(),
+                            teacher.getName(),
+                            teacher.getMobileNumber(),
+                            teacher.getClassTeacher(),
+                            teacher.getClasses() == null ? List.of() : List.copyOf(teacher.getClasses()),
+                            teacher.getSubjects() == null ? List.of() : List.copyOf(teacher.getSubjects())))
+                    .toList();
+            return new GetAllTeacherProfile(rows, teacherPage.getNumber(), teacherPage.getSize(), teacherPage.getTotalElements(), teacherPage.getTotalPages(), teacherPage.isLast());
+        }
+
         List<Teacher> teachers = teacherRepository.findAll();
         List<TeacherProfileResponse> rows = teachers.stream()
                 .map(teacher -> new TeacherProfileResponse(
@@ -144,7 +164,7 @@ public class TeacherService {
                 teacher.getSubjects() == null ? List.of() : List.copyOf(teacher.getSubjects()));
     }
 
-    public GetAllStudentProfile getStudentProfile(String authorizationHeader) {
+    public GetAllStudentProfile getStudentProfile(String authorizationHeader, Integer page, Integer size) {
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
             return null;
         }
@@ -162,6 +182,28 @@ public class TeacherService {
         if (ids.isEmpty()) {
             return new GetAllStudentProfile(List.of());
         }
+
+        if (page != null && size != null) {
+            int totalElements = ids.size();
+            int totalPages = (int) Math.ceil((double) totalElements / size);
+            int start = page * size;
+            if (start >= totalElements) {
+                return new GetAllStudentProfile(List.of(), page, size, totalElements, totalPages, true);
+            }
+            int end = Math.min(start + size, totalElements);
+            List<Long> pageIds = ids.subList(start, end);
+
+            List<Student> loaded = studentRepository.findAllById(pageIds);
+            Map<Long, Student> byId = new LinkedHashMap<>();
+            for (Student s : loaded) {
+                byId.put(s.getId(), s);
+            }
+            List<StudentProfileResponse> rows =
+                    pageIds.stream().map(byId::get).filter(s -> s != null).map(this::toStudentProfile).toList();
+            boolean last = (end == totalElements);
+            return new GetAllStudentProfile(rows, page, size, totalElements, totalPages, last);
+        }
+
         List<Student> loaded = studentRepository.findAllById(ids);
         Map<Long, Student> byId = new LinkedHashMap<>();
         for (Student s : loaded) {

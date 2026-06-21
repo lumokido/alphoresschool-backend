@@ -86,19 +86,38 @@ public class StudentController {
 
     // GET /api/students/class/{className}
     @GetMapping("/class/{className}")
-    public ResponseEntity<java.util.List<StudentResponse>> getStudentsByClass(@PathVariable String className) {
+    public ResponseEntity<?> getStudentsByClass(
+            @PathVariable String className,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        if (page != null && size != null) {
+            return ResponseEntity.ok(studentService.getStudentsByClass(className, page, size));
+        }
         return ResponseEntity.ok(studentService.getStudentsByClass(className));
     }
 
     // GET /api/students/class/id/{classId}
     @GetMapping("/class/id/{classId}")
-    public ResponseEntity<java.util.List<StudentResponse>> getStudentsByClassId(@PathVariable Long classId) {
+    public ResponseEntity<?> getStudentsByClassId(
+            @PathVariable Long classId,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        if (page != null && size != null) {
+            return ResponseEntity.ok(studentService.getStudentsByClassId(classId, page, size));
+        }
         return ResponseEntity.ok(studentService.getStudentsByClassId(classId));
     }
 
     // GET /api/students/class/{classId}/section/{sectionId}
     @GetMapping("/class/{classId}/section/{sectionId}")
-    public ResponseEntity<java.util.List<StudentResponse>> getStudentsByClassAndSection(@PathVariable Long classId, @PathVariable Long sectionId) {
+    public ResponseEntity<?> getStudentsByClassAndSection(
+            @PathVariable Long classId,
+            @PathVariable Long sectionId,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        if (page != null && size != null) {
+            return ResponseEntity.ok(studentService.getStudentsByClassAndSection(classId, sectionId, page, size));
+        }
         return ResponseEntity.ok(studentService.getStudentsByClassAndSection(classId, sectionId));
     }
 

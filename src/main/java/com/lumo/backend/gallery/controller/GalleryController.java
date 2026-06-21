@@ -41,15 +41,17 @@ public class GalleryController {
     }
 
     @GetMapping
-    public ResponseEntity<List<GalleryResponse>> getAllGallery(
+    public ResponseEntity<com.lumo.backend.gallery.dto.PaginatedResponse<GalleryResponse>> getAllGallery(
             @RequestParam(value = "type", required = false) String type,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size,
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
 
         if (!isAuthenticated(authorizationHeader)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized access.");
         }
 
-        return ResponseEntity.ok(galleryService.getAllGalleryItems(type));
+        return ResponseEntity.ok(galleryService.getAllGalleryItems(type, page, size));
     }
 
     @GetMapping("/{id}")

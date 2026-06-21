@@ -26,3 +26,9 @@ CREATE TABLE homework_files (
 
 -- 4. Alter the students table to add profilePhotoUrl
 ALTER TABLE students ADD COLUMN IF NOT EXISTS profile_photo_url VARCHAR(500);
+
+-- 5. Create indexes to speed up database queries
+CREATE INDEX IF NOT EXISTS idx_gallery_type ON gallery(type);
+CREATE INDEX IF NOT EXISTS idx_gallery_created_at ON gallery(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_homework_files_homework_id ON homework_files(homework_id);
+

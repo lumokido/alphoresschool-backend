@@ -120,12 +120,12 @@ public class StudentService {
             String match1 = request.studentClass() + "Section " + targetSection;
             String match2 = request.studentClass() + targetSection;
             
-            teacher = teacherRepository.findByClassTeacher(match1).orElse(null);
+            teacher = teacherRepository.findFirstByClassTeacher(match1).orElse(null);
             if (teacher == null) {
-                teacher = teacherRepository.findByClassTeacher(match2).orElse(null);
+                teacher = teacherRepository.findFirstByClassTeacher(match2).orElse(null);
             }
             if (teacher == null) {
-                teacher = teacherRepository.findByClassTeacher(request.studentClass()).orElse(null);
+                teacher = teacherRepository.findFirstByClassTeacher(request.studentClass()).orElse(null);
             }
         }
 
@@ -143,16 +143,64 @@ public class StudentService {
                 .collect(Collectors.toList());
     }
 
+    public com.lumo.backend.gallery.dto.PaginatedResponse<StudentResponse> getStudentsByClass(String className, int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        org.springframework.data.domain.Page<Student> studentPage = studentRepository.findByStudentClass(className, pageable);
+        List<StudentResponse> content = studentPage.getContent().stream()
+                .map(this::buildResponse)
+                .collect(Collectors.toList());
+        return new com.lumo.backend.gallery.dto.PaginatedResponse<>(
+                content,
+                studentPage.getNumber(),
+                studentPage.getSize(),
+                studentPage.getTotalElements(),
+                studentPage.getTotalPages(),
+                studentPage.isLast()
+        );
+    }
+
     public List<StudentResponse> getStudentsByClassId(Long classId) {
         return studentRepository.findBySchoolClassId(classId).stream()
                 .map(this::buildResponse)
                 .collect(Collectors.toList());
     }
 
+    public com.lumo.backend.gallery.dto.PaginatedResponse<StudentResponse> getStudentsByClassId(Long classId, int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        org.springframework.data.domain.Page<Student> studentPage = studentRepository.findBySchoolClassId(classId, pageable);
+        List<StudentResponse> content = studentPage.getContent().stream()
+                .map(this::buildResponse)
+                .collect(Collectors.toList());
+        return new com.lumo.backend.gallery.dto.PaginatedResponse<>(
+                content,
+                studentPage.getNumber(),
+                studentPage.getSize(),
+                studentPage.getTotalElements(),
+                studentPage.getTotalPages(),
+                studentPage.isLast()
+        );
+    }
+
     public List<StudentResponse> getStudentsByClassAndSection(Long classId, Long sectionId) {
         return studentRepository.findBySchoolClassIdAndSectionId(classId, sectionId).stream()
                 .map(this::buildResponse)
                 .collect(Collectors.toList());
+    }
+
+    public com.lumo.backend.gallery.dto.PaginatedResponse<StudentResponse> getStudentsByClassAndSection(Long classId, Long sectionId, int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        org.springframework.data.domain.Page<Student> studentPage = studentRepository.findBySchoolClassIdAndSectionId(classId, sectionId, pageable);
+        List<StudentResponse> content = studentPage.getContent().stream()
+                .map(this::buildResponse)
+                .collect(Collectors.toList());
+        return new com.lumo.backend.gallery.dto.PaginatedResponse<>(
+                content,
+                studentPage.getNumber(),
+                studentPage.getSize(),
+                studentPage.getTotalElements(),
+                studentPage.getTotalPages(),
+                studentPage.isLast()
+        );
     }
 
     public Map<String, String> loginStudent(StudentLoginRequest request) {
@@ -235,14 +283,14 @@ public class StudentService {
             String match1 = student.getStudentClass() + "Section " + student.getSection().getName();
             String match2 = student.getStudentClass() + student.getSection().getName();
             
-            teacherOpt = teacherRepository.findByClassTeacher(match1);
+            teacherOpt = teacherRepository.findFirstByClassTeacher(match1);
             if (teacherOpt.isEmpty()) {
-                teacherOpt = teacherRepository.findByClassTeacher(match2);
+                teacherOpt = teacherRepository.findFirstByClassTeacher(match2);
             }
         }
         
         if (teacherOpt.isEmpty()) {
-            teacherOpt = teacherRepository.findByClassTeacher(student.getStudentClass());
+            teacherOpt = teacherRepository.findFirstByClassTeacher(student.getStudentClass());
         }
 
         Long teacherId = null;

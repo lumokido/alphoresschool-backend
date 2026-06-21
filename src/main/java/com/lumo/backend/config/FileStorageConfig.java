@@ -5,8 +5,10 @@ import java.io.File;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.cache.annotation.EnableCaching;
 
 @Configuration
+@EnableCaching
 public class FileStorageConfig {
 
     @Value("${app.upload.root:/opt/uploads}")

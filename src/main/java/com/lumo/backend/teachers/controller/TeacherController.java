@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -104,15 +105,19 @@ public class TeacherController {
 
     @GetMapping("/get-all")
     public ResponseEntity<GetAllTeacherProfile> getAllTeacherProfile(
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size,
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
-        GetAllTeacherProfile profile = teacherService.getTeacherProfile();
+        GetAllTeacherProfile profile = teacherService.getTeacherProfile(page, size);
         return ResponseEntity.ok(profile);
     }
 
     @GetMapping("/get-all-students")
     public ResponseEntity<GetAllStudentProfile> getAllStudentProfile(
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size,
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
-        GetAllStudentProfile profile = teacherService.getStudentProfile(authorizationHeader);
+        GetAllStudentProfile profile = teacherService.getStudentProfile(authorizationHeader, page, size);
         if (profile == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }

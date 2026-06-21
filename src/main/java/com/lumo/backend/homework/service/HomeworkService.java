@@ -6,6 +6,8 @@ import com.lumo.backend.homework.repository.HomeworkFileRepository;
 import com.lumo.backend.service.FileStorageService;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,6 +24,7 @@ public class HomeworkService {
     }
 
     @Transactional
+    @CacheEvict(value = "homeworkAttachments", key = "#homeworkId")
     public HomeworkFile addAttachment(Long homeworkId, MultipartFile file) {
         // Save file physically
         String fileUrl = fileStorageService.saveHomeworkFile(file);
@@ -37,19 +40,25 @@ public class HomeworkService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "homeworkAttachments", key = "#homeworkId")
     public List<HomeworkFile> getAttachmentsByHomeworkId(Long homeworkId) {
         return homeworkFileRepository.findByHomeworkId(homeworkId);
     }
 
     @Transactional
-    public void deleteAttachment(Long fileId) {
+    @CacheEvict(value = "homeworkAttachments", key = "#result", condition = "#result != null")
+    public Long deleteAttachment(Long fileId) {
         HomeworkFile homeworkFile = homeworkFileRepository.findById(fileId)
                 .orElseThrow(() -> new StorageFileNotFoundException("Homework file not found with ID: " + fileId));
 
         // Delete physical file
         fileStorageService.deleteFile(homeworkFile.getFileUrl());
 
+        Long homeworkId = homeworkFile.getHomeworkId();
+
         // Delete database record
         homeworkFileRepository.delete(homeworkFile);
+
+        return homeworkId;
     }
 }
