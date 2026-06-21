@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.LocalTime;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -38,4 +39,8 @@ public class Timetable {
     private Integer period; // 1, 2, 3...
     private String subject;
     private Long teacherId;
+
+    private String type = "PERIOD"; // e.g. PERIOD, LUNCH_BREAK, NORMAL_BREAK
+    private LocalTime startTime;
+    private LocalTime endTime;
 }

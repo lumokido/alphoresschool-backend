@@ -51,6 +51,9 @@ public class TimetableService {
         timetable.setPeriod(request.period());
         timetable.setSubject(request.subject());
         timetable.setTeacherId(request.teacherId());
+        timetable.setType(request.type() != null ? request.type() : "PERIOD");
+        timetable.setStartTime(request.startTime());
+        timetable.setEndTime(request.endTime());
 
         return timetableRepository.save(timetable);
     }
@@ -61,9 +64,9 @@ public class TimetableService {
 
     public List<Timetable> getTimetableByClassAndSection(Long classId, Long sectionId) {
         if (sectionId != null) {
-            return timetableRepository.findBySchoolClassIdAndSectionId(classId, sectionId);
+            return timetableRepository.findBySchoolClassIdAndSectionIdOrSectionIsNull(classId, sectionId);
         }
-        return timetableRepository.findBySchoolClassId(classId);
+        return timetableRepository.findBySchoolClassIdAndSectionIsNull(classId);
     }
 
     public List<Timetable> getMyTimetable(String authorizationHeader) {
