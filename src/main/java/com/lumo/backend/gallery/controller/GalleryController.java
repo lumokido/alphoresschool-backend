@@ -2,6 +2,7 @@ package com.lumo.backend.gallery.controller;
 
 import com.lumo.backend.gallery.dto.GalleryResponse;
 import com.lumo.backend.gallery.dto.GalleryUploadResponse;
+import com.lumo.backend.gallery.entity.GalleryType;
 import com.lumo.backend.gallery.service.GalleryService;
 import com.lumo.backend.security.JwtService;
 import java.util.List;
@@ -52,6 +53,15 @@ public class GalleryController {
         }
 
         return ResponseEntity.ok(galleryService.getAllGalleryItems(type, page, size));
+    }
+
+    @GetMapping("/types")
+    public ResponseEntity<List<GalleryType>> getGalleryTypes(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        if (!isAuthenticated(authorizationHeader)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized access.");
+        }
+        return ResponseEntity.ok(List.of(GalleryType.values()));
     }
 
     @GetMapping("/{id}")
