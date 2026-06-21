@@ -69,9 +69,7 @@ public class AdminAuthService {
     }
     
     public boolean register(AdminRegisterRequest request) {
-        if (principalRepository.count() > 0) {
-            return false;
-        }
+   
 
         Principal principal = new Principal();
         principal.setName(request.name());
