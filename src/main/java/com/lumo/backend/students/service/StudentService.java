@@ -100,29 +100,35 @@ public class StudentService {
             }
             student.setSchoolClass(sc);
 
-            // Fetch or create section provided by request (default to A)
-            String targetSection = request.sectionName() != null && !request.sectionName().isBlank() ? request.sectionName() : "A";
-            Section sec = sectionRepository.findByNameAndSchoolClassId(targetSection, sc.getId()).orElse(null);
-            if (sec == null) {
-                sec = new Section();
-                sec.setName(targetSection);
-                sec.setSchoolClass(sc);
-                sec = sectionRepository.save(sec);
+            // Fetch or create section provided by request
+            if (request.sectionName() != null && !request.sectionName().isBlank()) {
+                String targetSection = request.sectionName();
+                Section sec = sectionRepository.findByNameAndSchoolClassId(targetSection, sc.getId()).orElse(null);
+                if (sec == null) {
+                    sec = new Section();
+                    sec.setName(targetSection);
+                    sec.setSchoolClass(sc);
+                    sec = sectionRepository.save(sec);
+                }
+                student.setSection(sec);
+            } else {
+                student.setSection(null);
             }
-            student.setSection(sec);
         }
 
         Student saved = studentRepository.save(student);
         
         if (teacher == null && request.studentClass() != null && !request.studentClass().isBlank()) {
             // Admin added the student, try to link to class teacher if exists
-            String targetSection = request.sectionName() != null && !request.sectionName().isBlank() ? request.sectionName() : "A";
-            String match1 = request.studentClass() + "Section " + targetSection;
-            String match2 = request.studentClass() + targetSection;
-            
-            teacher = teacherRepository.findFirstByClassTeacher(match1).orElse(null);
-            if (teacher == null) {
-                teacher = teacherRepository.findFirstByClassTeacher(match2).orElse(null);
+            if (request.sectionName() != null && !request.sectionName().isBlank()) {
+                String targetSection = request.sectionName();
+                String match1 = request.studentClass() + "Section " + targetSection;
+                String match2 = request.studentClass() + targetSection;
+                
+                teacher = teacherRepository.findFirstByClassTeacher(match1).orElse(null);
+                if (teacher == null) {
+                    teacher = teacherRepository.findFirstByClassTeacher(match2).orElse(null);
+                }
             }
             if (teacher == null) {
                 teacher = teacherRepository.findFirstByClassTeacher(request.studentClass()).orElse(null);

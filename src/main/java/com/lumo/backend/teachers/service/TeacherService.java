@@ -28,18 +28,21 @@ public class TeacherService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final com.lumo.backend.classes.repository.SchoolClassRepository classRepository;
+    private final com.lumo.backend.classes.repository.SectionRepository sectionRepository;
 
     public TeacherService(
             TeacherRepository teacherRepository,
             StudentRepository studentRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            com.lumo.backend.classes.repository.SchoolClassRepository classRepository) {
+            com.lumo.backend.classes.repository.SchoolClassRepository classRepository,
+            com.lumo.backend.classes.repository.SectionRepository sectionRepository) {
         this.teacherRepository = teacherRepository;
         this.studentRepository = studentRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.classRepository = classRepository;
+        this.sectionRepository = sectionRepository;
     }
 
     @CacheEvict(value = {"teachersByEmail", "teachersByClass"}, allEntries = true)
@@ -177,40 +180,79 @@ public class TeacherService {
         if (teacher == null) {
             return null;
         }
-        List<Long> ids =
-                teacher.getStudentIds() == null ? List.of() : List.copyOf(teacher.getStudentIds());
-        if (ids.isEmpty()) {
-            return new GetAllStudentProfile(List.of());
+
+        // 1. Resolve homeroom class teacher students
+        List<Student> homeroomStudents = new java.util.ArrayList<>();
+        String homeroom = teacher.getClassTeacher();
+        if (homeroom != null && !homeroom.isBlank() && !"Not Assigned".equalsIgnoreCase(homeroom)) {
+            String baseClass = homeroom;
+            String sectionName = null;
+
+            if (homeroom.contains("Section ")) {
+                baseClass = homeroom.split("Section ")[0].trim();
+                sectionName = homeroom.substring(homeroom.indexOf("Section ") + 8).trim();
+            } else {
+                for (com.lumo.backend.classes.entity.SchoolClass sc : classRepository.findAll()) {
+                    if (homeroom.startsWith(sc.getName())) {
+                        baseClass = sc.getName();
+                        sectionName = homeroom.substring(baseClass.length()).trim();
+                        break;
+                    }
+                }
+            }
+
+            if (sectionName != null && !sectionName.isBlank()) {
+                com.lumo.backend.classes.entity.SchoolClass sc = classRepository.findByName(baseClass).orElse(null);
+                if (sc != null) {
+                    com.lumo.backend.classes.entity.Section sec = sectionRepository.findByNameAndSchoolClassId(sectionName, sc.getId()).orElse(null);
+                    if (sec != null) {
+                        homeroomStudents = studentRepository.findBySchoolClassIdAndSectionId(sc.getId(), sec.getId());
+                    } else {
+                        homeroomStudents = studentRepository.findByStudentClass(baseClass);
+                    }
+                } else {
+                    homeroomStudents = studentRepository.findByStudentClass(baseClass);
+                }
+            } else {
+                homeroomStudents = studentRepository.findByStudentClass(baseClass);
+            }
         }
 
+        // 2. Resolve students explicitly added by this teacher
+        List<Long> addedIds = teacher.getStudentIds() == null ? List.of() : List.copyOf(teacher.getStudentIds());
+        List<Student> addedStudents = addedIds.isEmpty() ? List.of() : studentRepository.findAllById(addedIds);
+
+        // 3. Combine both lists (avoiding duplicates)
+        Map<Long, Student> combinedStudentsMap = new LinkedHashMap<>();
+        for (Student s : homeroomStudents) {
+            combinedStudentsMap.put(s.getId(), s);
+        }
+        for (Student s : addedStudents) {
+            combinedStudentsMap.put(s.getId(), s);
+        }
+
+        List<Student> allStudents = new java.util.ArrayList<>(combinedStudentsMap.values());
+
         if (page != null && size != null) {
-            int totalElements = ids.size();
+            int totalElements = allStudents.size();
             int totalPages = (int) Math.ceil((double) totalElements / size);
             int start = page * size;
             if (start >= totalElements) {
                 return new GetAllStudentProfile(List.of(), page, size, totalElements, totalPages, true);
             }
             int end = Math.min(start + size, totalElements);
-            List<Long> pageIds = ids.subList(start, end);
+            List<Student> pageStudents = allStudents.subList(start, end);
 
-            List<Student> loaded = studentRepository.findAllById(pageIds);
-            Map<Long, Student> byId = new LinkedHashMap<>();
-            for (Student s : loaded) {
-                byId.put(s.getId(), s);
-            }
-            List<StudentProfileResponse> rows =
-                    pageIds.stream().map(byId::get).filter(s -> s != null).map(this::toStudentProfile).toList();
+            List<StudentProfileResponse> rows = pageStudents.stream()
+                    .map(this::toStudentProfile)
+                    .toList();
             boolean last = (end == totalElements);
             return new GetAllStudentProfile(rows, page, size, totalElements, totalPages, last);
         }
 
-        List<Student> loaded = studentRepository.findAllById(ids);
-        Map<Long, Student> byId = new LinkedHashMap<>();
-        for (Student s : loaded) {
-            byId.put(s.getId(), s);
-        }
-        List<StudentProfileResponse> rows =
-                ids.stream().map(byId::get).filter(s -> s != null).map(this::toStudentProfile).toList();
+        List<StudentProfileResponse> rows = allStudents.stream()
+                .map(this::toStudentProfile)
+                .toList();
         return new GetAllStudentProfile(rows);
     }
 
