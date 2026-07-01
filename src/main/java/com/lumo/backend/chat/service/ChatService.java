@@ -8,7 +8,8 @@ import com.lumo.backend.students.repository.StudentRepository;
 import com.lumo.backend.teachers.repository.TeacherRepository;
 import com.lumo.backend.security.JwtService;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -82,7 +83,7 @@ public class ChatService {
         message.setReceiverId(request.receiverId());
         message.setReceiverRole(receiverRole);
         message.setContent(request.content());
-        message.setTimestamp(LocalDateTime.now());
+        message.setTimestamp(Instant.now().truncatedTo(ChronoUnit.MILLIS));
 
         return chatRepository.save(message);
     }

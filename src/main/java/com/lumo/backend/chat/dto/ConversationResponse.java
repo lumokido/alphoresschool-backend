@@ -1,11 +1,13 @@
 package com.lumo.backend.chat.dto;
 
-import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import java.time.Instant;
 
 public record ConversationResponse(
     String participantId,
     String participantName,
     String lastMessage,
-    LocalDateTime lastActive
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
+    Instant lastActive
 ) {
 }

@@ -13,7 +13,7 @@ import com.lumo.backend.teachers.entity.Teacher;
 import com.lumo.backend.teachers.repository.TeacherRepository;
 import com.lumo.backend.security.JwtService;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -125,7 +125,7 @@ class ChatServiceTest {
         latestMsg.setSenderId("teacher@school.com");
         latestMsg.setReceiverId("ALP260001");
         latestMsg.setContent("Latest content");
-        latestMsg.setTimestamp(LocalDateTime.of(2026, 6, 22, 10, 0));
+        latestMsg.setTimestamp(Instant.parse("2026-06-22T10:00:00.000Z"));
 
         when(chatRepository.findLatestMessagesForUser("teacher@school.com")).thenReturn(List.of(latestMsg));
 
